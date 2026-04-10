@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Chat App</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body {
+  background-image: 
+    linear-gradient(rgba(2,6,23,0.85), rgba(2,6,23,0.95)), 
+    url("https://as2.ftcdn.net/jpg/09/47/02/71/1000_F_947027145_XOJn55qXsq8XnwOj2RMlKzLOMdU5v7Ar.jpg");
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+.bg-grid {
+  position: fixed;
+  width: 200%;
+  height: 200%;
+  background-image: linear-gradient(#0ea5e9 1px, transparent 1px),
+                    linear-gradient(90deg, #0ea5e9 1px, transparent 1px);
+  background-size: 50px 50px;
+  opacity: 0.08;
+  animation: moveGrid 20s linear infinite;
+  pointer-events: none;
+}
+@keyframes moveGrid {
+  0% { transform: translate(0,0); }
+  100% { transform: translate(-50px,-50px); }
+}
+</style>
+</head>
+
+<body class="h-screen flex text-white">
+
+<div class="bg-grid"></div>
+<div id="sidebar" class="w-64 bg-white/10 backdrop-blur-lg p-4 flex flex-col gap-4 transition-all duration-300">
+
+  <h1 class="text-xl font-bold text-cyan-400">🤖 AI Assistant</h1>
+
+  <button onclick="newChat()" class="bg-cyan-500 p-2 rounded hover:bg-cyan-700">New Chat</button>
+  <button onclick="clearChat()" class="bg-red-500 p-2 rounded hover:bg-red-700">Clear Chat</button>
+  <button onclick="changeBG()" class="bg-yellow-500 p-2 rounded hover:bg-yellow-700">Change BG</button>
+
+  <button onclick="toggleSidebar()" class="mt-auto bg-black/40 p-2 rounded">Toggle</button>
+</div>
+
+
+<div class="flex-1 flex flex-col">
+
+  <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+
+  <div class="p-4 flex gap-2 bg-black/40">
+    <input id="input" placeholder="Type a message..."
+      class="flex-1 p-2 rounded text-black outline-none"/>
+    <button onclick="sendMessage()"
+      class="bg-cyan-500 px-4 rounded hover:bg-cyan-700">Send</button>
+  </div>
+
+</div>
+
+<script>
+const bgi = [
+  "https://as2.ftcdn.net/jpg/09/47/02/71/1000_F_947027145_XOJn55qXsq8XnwOj2RMlKzLOMdU5v7Ar.jpg",
+  "https://images.unsplash.com/photo-1506744038136-46273834b3fb",
+  "https://images.unsplash.com/photo-1497436072909-60f360e1d4b1",
+  "https://images.unsplash.com/photo-1518770660439-4636190af475"
+];
+
+let currentBG = 0;
+
+function changeBG() {
+  currentBG = (currentBG + 1) % bgi.length;
+
+  document.body.style.backgroundImage = `
+    linear-gradient(rgba(2,6,23,0.85), rgba(2,6,23,0.95)),
+    url('${bgi[currentBG]}')
+  `;
+}
+let chatHistory = JSON.parse(localStorage.getItem("chat")) || [];
+
+function loadChat() {
+  const chat = document.getElementById("chat");
+  chat.innerHTML = "";
+  chatHistory.forEach(msg => {
+    addMessage(msg.text, msg.type, false);
+  });
+}
+function addMessage(text, type, save=true) {
+  const chat = document.getElementById("chat");
+
+  const wrapper = document.createElement("div");
+  wrapper.className = `flex ${type === "user" ? "justify-end" : "justify-start"} group`;
+
+  const div = document.createElement("div");
+  div.className = `max-w-xs p-3 rounded-lg ${
+    type === "user"
+      ? "bg-cyan-500 text-white rounded-br-none"
+      : "bg-white/20 text-white rounded-bl-none"
+  }`;
+
+  const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+  div.innerHTML = `
+    <div class="msg-text">${text}</div>
+    <div class="text-xs mt-1 opacity-70 text-right">${time}</div>
+  `;
+
+  const actions = document.createElement("div");
+  actions.className = "absolute hidden group-hover:flex gap-2";
+
+  if (type === "user") {
+    actions.classList.add("right-0", "-top-2");
+  } else {
+    actions.classList.add("left-0", "-top-2");
+  }
+
+  actions.innerHTML = `
+    <button onclick="copyText('${text}')" class="bg-black/50 px-1 text-xs">📋</button>
+    <button onclick="this.parentElement.parentElement.remove()" class="bg-red-500 px-1 text-xs">❌</button>
+  `;
+
+  const container = document.createElement("div");
+  container.className = "relative";
+
+  container.appendChild(div);
+  container.appendChild(actions);
+  wrapper.appendChild(container);
+  chat.appendChild(wrapper);
+
+  chat.scrollTop = chat.scrollHeight;
+
+  if (save) {
+    chatHistory.push({ text, type });
+    localStorage.setItem("chat", JSON.stringify(chatHistory));
+  }
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text);
+}
+
+function fakeAIResponse(text) {
+  text = text.toLowerCase();
+
+  if (text.includes("hello")) return "Hello 👋 How can I help?";
+  if (text.includes("weather")) return "Check your weather app 🌤";
+  if (text.includes("name")) return "I am your AI Assistant 🤖";
+
+  return "AI: " + text;
+}
+
+function sendMessage() {
+  const input = document.getElementById("input");
+  const text = input.value.trim();
+
+  if (!text) return;
+
+  addMessage(text, "user");
+  input.value = "";
+
+  const chat = document.getElementById("chat");
+
+  const typing = document.createElement("div");
+  typing.innerText = "🤖 Thinking...";
+  typing.className = "text-gray-300";
+  chat.appendChild(typing);
+
+  setTimeout(() => {
+    typing.remove();
+    const reply = fakeAIResponse(text);
+    typeEffect(reply);
+  }, 800);
+}
+
+function typeEffect(text) {
+  let i = 0;
+
+  addMessage("", "ai");
+
+  const messages = document.querySelectorAll(".msg-text");
+  const currentMsg = messages[messages.length - 1];
+
+  const interval = setInterval(() => {
+    if (i <= text.length) {
+      currentMsg.innerText = text.slice(0, i);
+      i++;
+    } else {
+      clearInterval(interval);
+    }
+  }, 30);
+}
+
+document.getElementById("input").addEventListener("keypress", function(e) {
+  if (e.key === "Enter") sendMessage();
+});
+
+function clearChat() {
+  chatHistory = [];
+  localStorage.removeItem("chat");
+  loadChat();
+}
+
+function newChat() {
+  clearChat();
+}
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("w-16");
+}
+
+
+loadChat();
+</script>
+
+</body>
+</html>
